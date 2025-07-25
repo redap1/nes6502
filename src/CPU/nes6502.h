@@ -50,8 +50,8 @@ private:
     Bus* bus_ = nullptr;
 
     // read/write via bus
-    void write(Word addr, Byte data);
-    Byte read(Word addr);
+    void cpuWrite(Word addr, Byte data);
+    Byte cpuRead(Word addr);
 
     Byte opcode;
     Byte cycles;
