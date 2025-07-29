@@ -45,7 +45,7 @@ public:
         Byte full_status;
     };
 
-    union Status status;      // status register
+    union Status status {};      // status register
 
 private:
     Bus* bus_ = nullptr;
