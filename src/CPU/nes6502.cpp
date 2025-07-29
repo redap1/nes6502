@@ -4,7 +4,7 @@
 nes6502::nes6502() {
 
     // initialize instruction lookup table
-    using c = nes6502;                               // used to make table a little shorter
+    using c = nes6502;                                          // used to make table a little shorter
     using std::bind;
 
     instr_table = 
@@ -26,6 +26,47 @@ nes6502::nes6502() {
         {"CPX", Imm, 2, bind(&c::CPX, this)}, {"SBC", IndX, 6, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"CPX", ZP, 3, bind(&c::CPX, this)}, {"SBC", ZP, 3, bind(&c::SBC, this)}, {"INC", ZP, 5, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"INX", Imp, 2, bind(&c::INX, this)}, {"SBC", Imm, 2, bind(&c::SBC, this)}, {"NOP", Imp, 2, bind(&c::NOP, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"CPX", Abs, 4, bind(&c::CPX, this)}, {"SBC", Abs, 4, bind(&c::SBC, this)}, {"INC", Abs, 6, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)},
         {"BEQ", Rel, 2, bind(&c::BEQ, this)}, {"SBC", IndY, 5, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SBC", ZPX, 4, bind(&c::SBC, this)}, {"INC", ZPX, 6, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SED", Imp, 2, bind(&c::SED, this)}, {"SBC", Imp, 2, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SBC", AbsX, 4, bind(&c::SBC, this)}, {"INC", AbsX, 7, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}
     };
+
+    reset();
+}
+
+void nes6502::reset() {
+    Word pc_reset = cpuRead(PC_RESET_ADDR) | (cpuRead(PC_RESET_ADDR+1) << 8);
+
+    pc = pc_reset;
+    stkp = STK_START;
+
+    accum = 0x00;
+    index_x = 0x00;
+    index_y = 0x00;
+    status.full_status = 0x00;
+
+    // disable interrupts, make sure unused flag is always high
+    status.flags.I = 1;
+    status.flags.U = 1;
+}
+
+void nes6502::clock() {
+    if (cycles == 0) {
+        opcode = cpuRead(pc++);
+        INSTR instr = instr_table[opcode];
+
+        // make sure unused flag is always high
+        status.flags.U = 1;
+        
+        cycles = instr.cycles;
+        
+        bool addr_mode_add_cycle = resolveAddress(instr.mode);
+        bool op_add_cycle = instr.operate();
+
+        // check if additional cycles are needed
+        cycles += (addr_mode_add_cycle & op_add_cycle) ? 1 : 0;
+
+        // just in case :P
+        status.flags.U = 1;
+    }
+
+    --cycles;
 }
 
 void nes6502::cpuWrite(Word addr, Byte data) {
@@ -36,25 +77,107 @@ Byte nes6502::cpuRead(Word addr) {
     return bus_->read(addr);
 }
 
-Byte nes6502::resolveAddress(AddressingMode mode) {
+bool nes6502::resolveAddress(AddressingMode mode) {
+    /* with all of these addressing modes, we keep in mind that pc has already been incremented at this point in the cycle.
+       this means that if the mode asks for another byte, we just read at the current pc. */
     switch (mode) {
         case Imp:
+            // no extra memory accesses needed for instruction
+            return false;
         case Imm:
+            // the next byte is used as a value
+            addr_abs = pc++;
+            return false;
         case Accum:
+            // skip for now
+            return false;
         case Rel:
+            // used with only branch instructions; second byte is an offset that is added to pc when counter is set at next instruction
+            addr_rel = cpuRead(pc++);
+            if (addr_rel & 0x80) {
+                addr_rel |= 0xFF00;                                               // turn negative if MSB is 1 (negative)
+            }
+            return false;
         case ZP:
+            // fetch second byte of instruction and assume zero page high byte
+            addr_abs = cpuRead(pc++);
+            addr_abs &= 0x00FF;
+            return false;
         case ZPX:
+            // zero page with x register offset
+            addr_abs = cpuRead(pc) + index_x;
+            addr_abs &= 0x00FF;
+            return false;
         case ZPY:
+            // zero page with y register offset
+            addr_abs = cpuRead(pc) + index_y;
+            addr_abs &= 0x00FF;
+            return false;
         case Abs:
+            // load a full 16-bit address using the second and third bytes
+            Byte low = cpuRead(pc++);
+            Byte high = cpuRead(pc++);
+
+            addr_abs = (high << 8) | low;
+            return false;
         case AbsX:
+            // absolute with x register offset, need to account for page changes
+            Byte low = cpuRead(pc++);
+            Byte high = cpuRead(pc++);
+
+            addr_abs = ((high << 8) | low) + index_x;
+
+            // needs an additional clock cycle if the page changes (high byte changes from the high byte in memory)
+            return ((addr_abs & 0xFF00) != (high << 8));
         case AbsY:
+            // absolute with y register offset
+            Byte low = cpuRead(pc++);
+            Byte high = cpuRead(pc++);
+
+            addr_abs = ((high << 8) | low) + index_x;
+
+            // needs an additional clock cycle if the page changes (high byte changes from the high byte in memory)
+            return ((addr_abs & 0xFF00) != (high << 8)); 
         case Ind:
+            // the second byte is the lower byte of a memory address, the third byte is the higher
+            Byte low = cpuRead(pc++);
+            Byte high = cpuRead(pc++);
+            Byte addr = (high << 8) | low;
+
+            // emulate 6502 bug: wrap around page if we cross page boundary
+            if (addr & 0x00FF == 0x00FF) {
+                addr_abs |= cpuRead(addr & 0xFF00);
+            }
+            else {
+                addr_abs |= cpuRead(addr + 1);
+            }
+
+            addr_abs |= cpuRead(addr);
+            return false;
         case IndX:
+            // the second byte of the instruction is added to register x; this points to a memory location on page 0 which contains the effective address
+            Byte ind_low = cpuRead(pc++);
+            Word addr = ind_low + index_x;
+            
+            Byte low = cpuRead(addr & 0x00FF);
+            Byte high = cpuRead((addr + 1) & 0x00FF);
+
+            addr_abs = (high << 8) | low;
+            return false;
+
         case IndY:
-        default: break;
+            // the second byte stores a pointer on page 0; the contents of memory at the address in pointer are offset by y
+            Word ptr = cpuRead(pc++) & 0x00FF;
+            
+            Byte low = cpuRead(ptr & 0x00FF);
+            Byte high = cpuRead((ptr + 1) & 0x00FF);
+
+            addr_abs = ((high << 8) | low) + index_y;
+
+            // check for page crossing
+            return ((addr_abs & 0xFF00) != (high << 8));
+        default: return false; 
     }
-    return 0x00;
-}
 
 
 

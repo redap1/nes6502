@@ -1,15 +1,15 @@
 #include "Bus.h"
 
 Bus::Bus() {
-
+    
 }
 
 void Bus::write(Word addr, Byte data) {
-    RAM[addr] = data;
+    memory[addr] = data;
 }
 
 Byte Bus::read(Word addr) {
-    return RAM[addr];
+    return memory[addr];
 }
 
 

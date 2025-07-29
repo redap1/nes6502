@@ -8,6 +8,9 @@
 using Byte = std::uint8_t;
 using Word = std::uint16_t;
 
+inline constexpr Word PC_RESET_ADDR = 0xFFFC;
+inline constexpr Byte STK_START = 0xFD;
+
 class Bus;
 
 class nes6502 {
@@ -18,9 +21,9 @@ public:
 
     // input signals
     void clock();
+    void reset();             // reset
     void NMI();               // non-maskable interrupt
     void IRQ();               // interrupt request
-    void RST();               // reset
 
     // registers
     Byte accum   {};          // accumulator
@@ -77,33 +80,33 @@ private:
     };
 
     // will be a switch statement that does all addressing mode logic
-    Byte resolveAddress(AddressingMode mode);
+    bool resolveAddress(AddressingMode mode);
 
     // Instructions, only official opcodes will be implemented for now
-    Byte ADC();    Byte AND();    Byte ASL();    Byte BCC();
-    Byte BCS();    Byte BEQ();    Byte BIT();    Byte BMI();
-    Byte BNE();    Byte BPL();    Byte BRK();    Byte BVC();
-    Byte BVS();    Byte CLC();    Byte CLD();    Byte CLI();
-    Byte CLV();    Byte CMP();    Byte CPX();    Byte CPY();
-    Byte DEC();    Byte DEX();    Byte DEY();    Byte EOR();
-    Byte INC();    Byte INX();    Byte INY();    Byte JMP();
-    Byte JSR();    Byte LDA();    Byte LDX();    Byte LDY();
-    Byte LSR();    Byte NOP();    Byte ORA();    Byte PHA();
-    Byte PHP();    Byte PLA();    Byte PLP();    Byte ROL();
-    Byte ROR();    Byte RTI();    Byte RTS();    Byte SBC();
-    Byte SEC();    Byte SED();    Byte SEI();    Byte STA();
-    Byte STX();    Byte STY();    Byte TAX();    Byte TAY();
-    Byte TSX();    Byte TXA();    Byte TXS();    Byte TYA();
+    bool ADC();    bool AND();    bool ASL();    bool BCC();
+    bool BCS();    bool BEQ();    bool BIT();    bool BMI();
+    bool BNE();    bool BPL();    bool BRK();    bool BVC();
+    bool BVS();    bool CLC();    bool CLD();    bool CLI();
+    bool CLV();    bool CMP();    bool CPX();    bool CPY();
+    bool DEC();    bool DEX();    bool DEY();    bool EOR();
+    bool INC();    bool INX();    bool INY();    bool JMP();
+    bool JSR();    bool LDA();    bool LDX();    bool LDY();
+    bool LSR();    bool NOP();    bool ORA();    bool PHA();
+    bool PHP();    bool PLA();    bool PLP();    bool ROL();
+    bool ROR();    bool RTI();    bool RTS();    bool SBC();
+    bool SEC();    bool SED();    bool SEI();    bool STA();
+    bool STX();    bool STY();    bool TAX();    bool TAY();
+    bool TSX();    bool TXA();    bool TXS();    bool TYA();
 
     // will capture all unofficial/unused opcodes
-    Byte XXX();    
+    bool XXX();    
 
     // Instruction lookup table
     struct INSTR {
         std::string name;
         AddressingMode mode;
         Byte cycles;
-        std::function<Byte()> func;
+        std::function<bool()> operate;
     };
 
     std::vector<INSTR> instr_table;

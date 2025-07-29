@@ -1,5 +1,5 @@
 #include <cstdint>
-
+#include <array>
 using Byte = uint8_t;
 using Word = uint16_t;
 
@@ -12,7 +12,7 @@ public:
     //devices connected to bus
     void connectCPU(nes6502* cpu) { cpu_ = cpu; }
 
-    Byte RAM[64 * 1024];
+    std::array<Byte, 64 * 1024> memory {};
 
     void write(Word addr, Byte data);
     Byte read(Word addr);
