@@ -30,25 +30,9 @@ nes6502::nes6502() {
     reset();
 }
 
-void nes6502::reset() {
-    Word pc_reset = cpuRead(PC_RESET_ADDR) | (cpuRead(PC_RESET_ADDR+1) << 8);
-
-    pc = pc_reset;
-    stkp = STK_START;
-
-    accum = 0x00;
-    index_x = 0x00;
-    index_y = 0x00;
-    status.full_status = 0x00;
-
-    // disable interrupts, make sure unused flag is always high
-    status.flags.I = 1;
-    status.flags.U = 1;
-}
-
 void nes6502::clock() {
     if (cycles == 0) {
-        opcode = cpuRead(pc++);
+        opcode = read(pc++);
         INSTR instr = instr_table[opcode];
 
         // make sure unused flag is always high
@@ -69,11 +53,35 @@ void nes6502::clock() {
     --cycles;
 }
 
-void nes6502::cpuWrite(Word addr, Byte data) {
+void nes6502::reset() {
+    Word pc_reset = read(PC_RESET_ADDR) | (read(PC_RESET_ADDR+1) << 8);
+
+    pc = pc_reset;
+    stkp = STK_START;
+
+    accum = 0x00;
+    index_x = 0x00;
+    index_y = 0x00;
+    status.full_status = 0x00;
+
+    // disable interrupts, make sure unused flag is always high
+    status.flags.I = 1;
+    status.flags.U = 1;
+}
+
+void nes6502::NMI() {
+
+}
+
+void nes6502::IRQ() {
+
+}
+
+void nes6502::write(Word addr, Byte data) {
     bus_->write(addr, data);
 }
 
-Byte nes6502::cpuRead(Word addr) {
+Byte nes6502::read(Word addr) {
     return bus_->read(addr);
 }
 
@@ -93,37 +101,37 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return false;
         case Rel:
             // used with only branch instructions; second byte is an offset that is added to pc when counter is set at next instruction
-            addr_rel = cpuRead(pc++);
+            addr_rel = read(pc++);
             if (addr_rel & 0x80) {
                 addr_rel |= 0xFF00;                                               // turn negative if MSB is 1 (negative)
             }
             return false;
         case ZP:
             // fetch second byte of instruction and assume zero page high byte
-            addr_abs = cpuRead(pc++);
+            addr_abs = read(pc++);
             addr_abs &= 0x00FF;
             return false;
         case ZPX:
             // zero page with x register offset
-            addr_abs = cpuRead(pc) + index_x;
+            addr_abs = read(pc) + index_x;
             addr_abs &= 0x00FF;
             return false;
         case ZPY:
             // zero page with y register offset
-            addr_abs = cpuRead(pc) + index_y;
+            addr_abs = read(pc) + index_y;
             addr_abs &= 0x00FF;
             return false;
         case Abs:
             // load a full 16-bit address using the second and third bytes
-            Byte low = cpuRead(pc++);
-            Byte high = cpuRead(pc++);
+            Byte low = read(pc++);
+            Byte high = read(pc++);
 
             addr_abs = (high << 8) | low;
             return false;
         case AbsX:
             // absolute with x register offset, need to account for page changes
-            Byte low = cpuRead(pc++);
-            Byte high = cpuRead(pc++);
+            Byte low = read(pc++);
+            Byte high = read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -131,8 +139,8 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8));
         case AbsY:
             // absolute with y register offset
-            Byte low = cpuRead(pc++);
-            Byte high = cpuRead(pc++);
+            Byte low = read(pc++);
+            Byte high = read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -140,37 +148,37 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8)); 
         case Ind:
             // the second byte is the lower byte of a memory address, the third byte is the higher
-            Byte low = cpuRead(pc++);
-            Byte high = cpuRead(pc++);
+            Byte low = read(pc++);
+            Byte high = read(pc++);
             Byte addr = (high << 8) | low;
 
             // emulate 6502 bug: wrap around page if we cross page boundary
             if (addr & 0x00FF == 0x00FF) {
-                addr_abs |= cpuRead(addr & 0xFF00);
+                addr_abs |= read(addr & 0xFF00);
             }
             else {
-                addr_abs |= cpuRead(addr + 1);
+                addr_abs |= read(addr + 1);
             }
 
-            addr_abs |= cpuRead(addr);
+            addr_abs |= read(addr);
             return false;
         case IndX:
             // the second byte of the instruction is added to register x; this points to a memory location on page 0 which contains the effective address
-            Byte ind_low = cpuRead(pc++);
+            Byte ind_low = read(pc++);
             Word addr = ind_low + index_x;
             
-            Byte low = cpuRead(addr & 0x00FF);
-            Byte high = cpuRead((addr + 1) & 0x00FF);
+            Byte low = read(addr & 0x00FF);
+            Byte high = read((addr + 1) & 0x00FF);
 
             addr_abs = (high << 8) | low;
             return false;
 
         case IndY:
             // the second byte stores a pointer on page 0; the contents of memory at the address in pointer are offset by y
-            Word ptr = cpuRead(pc++) & 0x00FF;
+            Word ptr = read(pc++) & 0x00FF;
             
-            Byte low = cpuRead(ptr & 0x00FF);
-            Byte high = cpuRead((ptr + 1) & 0x00FF);
+            Byte low = read(ptr & 0x00FF);
+            Byte high = read((ptr + 1) & 0x00FF);
 
             addr_abs = ((high << 8) | low) + index_y;
 
@@ -178,6 +186,21 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8));
         default: return false; 
     }
+}
+
+Byte nes6502::fetch() {
+    if (instr_table[opcode].mode != Imp && instr_table[opcode].mode != Accum) {
+        return read(addr_abs);
+    }
+    
+    if (instr_table[opcode].mode == Accum) {
+        return accum;
+    }
+
+    // implied or no fetch needed
+    return 0x00;
+}
+
 
 
 

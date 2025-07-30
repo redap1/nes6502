@@ -54,8 +54,10 @@ private:
     Bus* bus_ = nullptr;
 
     // read/write via bus
-    void cpuWrite(Word addr, Byte data);
-    Byte cpuRead(Word addr);
+    void write(Word addr, Byte data);
+    Byte read(Word addr);
+
+    Byte fetch();
 
     Byte opcode   {};
     Byte cycles   {};
@@ -79,7 +81,6 @@ private:
         IndY
     };
 
-    // will be a switch statement that does all addressing mode logic
     bool resolveAddress(AddressingMode mode);
 
     // Instructions, only official opcodes will be implemented for now
