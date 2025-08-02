@@ -10,6 +10,9 @@ using Word = std::uint16_t;
 
 inline constexpr Word PC_RESET_ADDR = 0xFFFC;
 inline constexpr Byte STK_START = 0xFD;
+inline constexpr Word STK_ADDR_START = 0x0100;
+inline constexpr Word IRQ_VECTOR = 0xFFFE;
+inline constexpr Word NMI_VECTOR = 0xFFFA;
 
 class Bus;
 
@@ -37,7 +40,7 @@ public:
         struct {
             Byte C : 1;       // carry bit
             Byte Z : 1;       // zero
-            Byte I : 1;       // disable interrupts
+            Byte I : 1;       // interrupts (active low)
             Byte D : 1;       // decimal mode (unused)
             Byte B : 1;       // break
             Byte U : 1;       // unused
@@ -45,7 +48,7 @@ public:
             Byte N : 1;       // negative
         } flags;
 
-        Byte full_status;
+        Byte reg;
     };
 
     union Status status {};      // status register
@@ -101,7 +104,7 @@ private:
 
     // will capture all unofficial/unused opcodes
     bool XXX();    
-
+    
     // Instruction lookup table
     struct INSTR {
         std::string name;

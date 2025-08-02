@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall
 
-SRCS = main.cpp CPU/nes6502.cpp
+SRCS = main.cpp src/CPU/nes6502.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: nes

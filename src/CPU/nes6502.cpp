@@ -54,27 +54,61 @@ void nes6502::clock() {
 }
 
 void nes6502::reset() {
-    Word pc_reset = read(PC_RESET_ADDR) | (read(PC_RESET_ADDR+1) << 8);
+    Word low = read(PC_RESET_ADDR);
+    Word high = read(PC_RESET_ADDR + 1);
 
-    pc = pc_reset;
+    pc = (high << 8) | low;
     stkp = STK_START;
 
     accum = 0x00;
     index_x = 0x00;
     index_y = 0x00;
-    status.full_status = 0x00;
+    status.reg = 0x00;
 
     // disable interrupts, make sure unused flag is always high
     status.flags.I = 1;
     status.flags.U = 1;
+
+    // takes 8 cycles
+    cycles = 8;
 }
 
 void nes6502::NMI() {
+    write(STK_ADDR_START + stkp--, (pc >> 8) & 0x00FF);
+    write(STK_ADDR_START + stkp--, pc & 0x00FF);
 
+    status.flags.B = 1;
+    status.flags.U = 1;
+    status.flags.I = 1;
+
+    write(STK_ADDR_START + stkp--, status.reg);
+    
+    Word low = read(IRQ_VECTOR);
+    Word high = read(IRQ_VECTOR + 1);
+
+    pc = (high << 8) | low;
+        
+    cycles = 7;
 }
 
 void nes6502::IRQ() {
+    if (status.flags.I == 0) {
+        write(STK_ADDR_START + stkp--, (pc >> 8) & 0x00FF);
+        write(STK_ADDR_START + stkp--, pc & 0x00FF);
 
+        status.flags.B = 1;
+        status.flags.U = 1;
+        status.flags.I = 1;
+
+        write(STK_ADDR_START + stkp--, status.reg);
+        
+        Word low = read(IRQ_VECTOR);
+        Word high = read(IRQ_VECTOR + 1);
+
+        pc = (high << 8) | low;
+
+        cycles = 7;
+    }
 }
 
 void nes6502::write(Word addr, Byte data) {
