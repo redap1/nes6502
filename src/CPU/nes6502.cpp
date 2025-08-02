@@ -1,5 +1,5 @@
 #include "nes6502.h"
-#include "Bus.h"
+#include "Bus/Bus.h"
 
 nes6502::nes6502() {
 
@@ -235,8 +235,233 @@ Byte nes6502::fetch() {
     return 0x00;
 }
 
+// opcodes start
 
+bool nes6502::ADC() {
+    return false;
+}
 
+bool nes6502::AND() {
+    return false;
+}
 
+bool nes6502::ASL() {
+    return false;
+}
 
+bool nes6502::BCC() {
+    return false;
+}
+
+bool nes6502::BCS() {
+    return false;
+}
+
+bool nes6502::BEQ() {
+    return false;
+}    
+
+bool nes6502::BIT() {
+    return false;
+}    
+
+bool nes6502::BMI() {
+    return false;
+}
+
+bool nes6502::BNE() {
+    return false;
+}    
+
+bool nes6502::BPL() {
+    return false;
+}    
+
+bool nes6502::BRK() {
+    return false;
+}    
+
+bool nes6502::BVC() {
+    return false;
+}
+
+bool nes6502::BVS() {
+    return false;
+}   
+
+bool nes6502::CLC() {
+    return false;
+}    
+
+bool nes6502::CLD() {
+    return false;
+}    
+
+bool nes6502::CLI() {
+    return false;
+}
+
+bool nes6502::CLV() {
+    return false;
+}    
+
+bool nes6502::CMP() {
+    return false;
+}    
+
+bool nes6502::CPX() {
+    return false;
+}    
+
+bool nes6502::CPY() {
+    return false;
+}
+
+bool nes6502::DEC() {
+    return false;
+}    
+
+bool nes6502::DEX() {
+    return false;
+}    
+
+bool nes6502::DEY() {
+    return false;
+}    
+
+bool nes6502::EOR() {
+    return false;
+}
+
+bool nes6502::INC() {
+    return false;
+}    
+
+bool nes6502::INX() {
+    return false;
+}    
+
+bool nes6502::INY() {
+    return false;
+}    
+
+bool nes6502::JMP() {
+    return false;
+}
+
+bool nes6502::JSR() {
+    return false;
+}    
+
+bool nes6502::LDA() {
+    return false;
+}    
+
+bool nes6502::LDX() {
+    return false;
+}    
+
+bool nes6502::LDY() {
+    return false;
+}
+
+bool nes6502::LSR() {
+    return false;
+}    
+
+bool nes6502::NOP() {
+    return false;
+}    
+
+bool nes6502::ORA() {
+    return false;
+}    
+
+bool nes6502::PHA() {
+    return false;
+}
+
+bool nes6502::PHP() {
+    return false;
+}    
+
+bool nes6502::PLA() {
+    return false;
+}    
+
+bool nes6502::PLP() {
+    return false;
+}    
+
+bool nes6502::ROL() {
+    return false;
+}
+
+bool nes6502::ROR() {
+    return false;
+}    
+
+bool nes6502::RTI() {
+    return false;
+}    
+
+bool nes6502::RTS() {
+    return false;
+}    
+
+bool nes6502::SBC() {
+    return false;
+}
+
+bool nes6502::SEC() {
+    return false;
+}    
+
+bool nes6502::SED() {
+    return false;
+}    
+
+bool nes6502::SEI() {
+    return false;
+}    
+
+bool nes6502::STA() {
+    return false;
+}
+
+bool nes6502::STX() {
+    return false;
+}    
+
+bool nes6502::STY() {
+    return false;
+}    
+
+bool nes6502::TAX() {
+    return false;
+}    
+
+bool nes6502::TAY() {
+    return false;
+}
+
+bool nes6502::TSX() {
+    return false;
+}    
+
+bool nes6502::TXA() {
+    return false;
+}    
+
+bool nes6502::TXS() {
+    return false;
+}    
+
+bool nes6502::TYA() {
+    return false;
+}
+
+bool nes6502::XXX() {
+    return false;
+}
 

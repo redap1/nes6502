@@ -1,0 +1,13 @@
+/build/
+
+CMakeCache.txt
+CMakeFiles/
+Makefile
+
+*.exe
+*.dll
+*.so
+*.o
+*.obj
+
+/tests/build/

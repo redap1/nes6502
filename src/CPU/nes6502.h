@@ -9,10 +9,11 @@ using Byte = std::uint8_t;
 using Word = std::uint16_t;
 
 inline constexpr Word PC_RESET_ADDR = 0xFFFC;
-inline constexpr Byte STK_START = 0xFD;
 inline constexpr Word STK_ADDR_START = 0x0100;
 inline constexpr Word IRQ_VECTOR = 0xFFFE;
 inline constexpr Word NMI_VECTOR = 0xFFFA;
+
+inline constexpr Byte STK_START = 0xFD;
 
 class Bus;
 
