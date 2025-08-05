@@ -26,8 +26,7 @@ nes6502::nes6502() {
         {"CPX", Imm, 2, bind(&c::CPX, this)}, {"SBC", IndX, 6, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"CPX", ZP, 3, bind(&c::CPX, this)}, {"SBC", ZP, 3, bind(&c::SBC, this)}, {"INC", ZP, 5, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"INX", Imp, 2, bind(&c::INX, this)}, {"SBC", Imm, 2, bind(&c::SBC, this)}, {"NOP", Imp, 2, bind(&c::NOP, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"CPX", Abs, 4, bind(&c::CPX, this)}, {"SBC", Abs, 4, bind(&c::SBC, this)}, {"INC", Abs, 6, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)},
         {"BEQ", Rel, 2, bind(&c::BEQ, this)}, {"SBC", IndY, 5, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SBC", ZPX, 4, bind(&c::SBC, this)}, {"INC", ZPX, 6, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SED", Imp, 2, bind(&c::SED, this)}, {"SBC", Imp, 2, bind(&c::SBC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}, {"SBC", AbsX, 4, bind(&c::SBC, this)}, {"INC", AbsX, 7, bind(&c::INC, this)}, {"XXX", Imp, 2, bind(&c::XXX, this)}
     };
-
-    reset();
+    
 }
 
 void nes6502::clock() {
@@ -120,6 +119,13 @@ Byte nes6502::read(Word addr) {
 }
 
 bool nes6502::resolveAddress(AddressingMode mode) {
+
+    Byte low     {};
+    Byte high    {};
+    Byte ind_low {};
+    Word addr    {};
+    Word ptr     {};
+
     /* with all of these addressing modes, we keep in mind that pc has already been incremented at this point in the cycle.
        this means that if the mode asks for another byte, we just read at the current pc. */
     switch (mode) {
@@ -157,15 +163,15 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return false;
         case Abs:
             // load a full 16-bit address using the second and third bytes
-            Byte low = read(pc++);
-            Byte high = read(pc++);
+            low = read(pc++);
+            high = read(pc++);
 
             addr_abs = (high << 8) | low;
             return false;
         case AbsX:
             // absolute with x register offset, need to account for page changes
-            Byte low = read(pc++);
-            Byte high = read(pc++);
+            low = read(pc++);
+            high = read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -173,8 +179,8 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8));
         case AbsY:
             // absolute with y register offset
-            Byte low = read(pc++);
-            Byte high = read(pc++);
+            low = read(pc++);
+            high = read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -182,9 +188,9 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8)); 
         case Ind:
             // the second byte is the lower byte of a memory address, the third byte is the higher
-            Byte low = read(pc++);
-            Byte high = read(pc++);
-            Byte addr = (high << 8) | low;
+            low = read(pc++);
+            high = read(pc++);
+            addr = (high << 8) | low;
 
             // emulate 6502 bug: wrap around page if we cross page boundary
             if (addr & 0x00FF == 0x00FF) {
@@ -198,21 +204,21 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return false;
         case IndX:
             // the second byte of the instruction is added to register x; this points to a memory location on page 0 which contains the effective address
-            Byte ind_low = read(pc++);
-            Word addr = ind_low + index_x;
+            ind_low = read(pc++);
+            addr = ind_low + index_x;
             
-            Byte low = read(addr & 0x00FF);
-            Byte high = read((addr + 1) & 0x00FF);
+            low = read(addr & 0x00FF);
+            high = read((addr + 1) & 0x00FF);
 
             addr_abs = (high << 8) | low;
             return false;
 
         case IndY:
             // the second byte stores a pointer on page 0; the contents of memory at the address in pointer are offset by y
-            Word ptr = read(pc++) & 0x00FF;
+            ptr = read(pc++) & 0x00FF;
             
-            Byte low = read(ptr & 0x00FF);
-            Byte high = read((ptr + 1) & 0x00FF);
+            low = read(ptr & 0x00FF);
+            high = read((ptr + 1) & 0x00FF);
 
             addr_abs = ((high << 8) | low) + index_y;
 

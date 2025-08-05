@@ -8,7 +8,6 @@ int main () {
     nes6502 cpu;
 
     cpu.connectBus(&nes);
-    nes.connectCPU(&cpu);
     
     return 0;
 }

@@ -1,8 +1,6 @@
 #include "Bus.h"
 
-Bus::Bus() {
-    
-}
+Bus::Bus() { }
 
 void Bus::write(Word addr, Byte data) {
     memory[addr] = data;

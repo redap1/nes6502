@@ -52,6 +52,8 @@ public:
         Byte reg;
     };
 
+    Byte getCycles() { return cycles; }
+
     union Status status {};      // status register
 
 private:
