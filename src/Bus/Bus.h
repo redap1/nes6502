@@ -2,8 +2,8 @@
 #include <array>
 #include "CPU/nes6502.h"
 
-using Byte = uint8_t;
-using Word = uint16_t;
+using Byte = std::uint8_t;
+using Word = std::uint16_t;
 
 class Bus {
 public:

@@ -36,14 +36,14 @@ void nes6502::clock() {
 
         // make sure unused flag is always high
         status.flags.U = 1;
-        
+
         cycles = instr.cycles;
         
-        bool addr_mode_add_cycle = resolveAddress(instr.mode);
-        bool op_add_cycle = instr.operate();
+        bool extra_cycle_addrmode = resolveAddress(instr.mode);
+        bool extra_cycle_opcode = instr.operate();
 
         // check if additional cycles are needed
-        cycles += (addr_mode_add_cycle & op_add_cycle) ? 1 : 0;
+        cycles += (extra_cycle_addrmode && extra_cycle_opcode) ? 1 : 0;
 
         // just in case :P
         status.flags.U = 1;
@@ -53,8 +53,8 @@ void nes6502::clock() {
 }
 
 void nes6502::reset() {
-    Word low = read(PC_RESET_ADDR);
-    Word high = read(PC_RESET_ADDR + 1);
+    Word low = (Word) read(PC_RESET_ADDR);
+    Word high = (Word) read(PC_RESET_ADDR + 1);
 
     pc = (high << 8) | low;
     stkp = STK_START;
@@ -82,8 +82,8 @@ void nes6502::NMI() {
 
     write(STK_ADDR_START + stkp--, status.reg);
     
-    Word low = read(IRQ_VECTOR);
-    Word high = read(IRQ_VECTOR + 1);
+    Word low = (Word) read(IRQ_VECTOR);
+    Word high = (Word) read(IRQ_VECTOR + 1);
 
     pc = (high << 8) | low;
         
@@ -101,8 +101,8 @@ void nes6502::IRQ() {
 
         write(STK_ADDR_START + stkp--, status.reg);
         
-        Word low = read(IRQ_VECTOR);
-        Word high = read(IRQ_VECTOR + 1);
+        Word low = (Word) read(IRQ_VECTOR);
+        Word high = (Word) read(IRQ_VECTOR + 1);
 
         pc = (high << 8) | low;
 
@@ -120,11 +120,12 @@ Byte nes6502::read(Word addr) {
 
 bool nes6502::resolveAddress(AddressingMode mode) {
 
-    Byte low     {};
-    Byte high    {};
-    Byte ind_low {};
+    Word low     {};
+    Word high    {};
     Word addr    {};
     Word ptr     {};
+
+    Byte ind_low {};
 
     /* with all of these addressing modes, we keep in mind that pc has already been incremented at this point in the cycle.
        this means that if the mode asks for another byte, we just read at the current pc. */
@@ -141,37 +142,37 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return false;
         case Rel:
             // used with only branch instructions; second byte is an offset that is added to pc when counter is set at next instruction
-            addr_rel = read(pc++);
+            addr_rel = (Word) (Word) read(pc++);
             if (addr_rel & 0x80) {
                 addr_rel |= 0xFF00;                                               // turn negative if MSB is 1 (negative)
             }
             return false;
         case ZP:
             // fetch second byte of instruction and assume zero page high byte
-            addr_abs = read(pc++);
+            addr_abs = (Word) read(pc++);
             addr_abs &= 0x00FF;
             return false;
         case ZPX:
             // zero page with x register offset
-            addr_abs = read(pc) + index_x;
+            addr_abs = (Word) read(pc) + index_x;
             addr_abs &= 0x00FF;
             return false;
         case ZPY:
             // zero page with y register offset
-            addr_abs = read(pc) + index_y;
+            addr_abs = (Word) read(pc) + index_y;
             addr_abs &= 0x00FF;
             return false;
         case Abs:
             // load a full 16-bit address using the second and third bytes
-            low = read(pc++);
-            high = read(pc++);
+            low = (Word) read(pc++);
+            high = (Word) read(pc++);
 
             addr_abs = (high << 8) | low;
             return false;
         case AbsX:
             // absolute with x register offset, need to account for page changes
-            low = read(pc++);
-            high = read(pc++);
+            low = (Word) read(pc++);
+            high = (Word) read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -179,8 +180,8 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8));
         case AbsY:
             // absolute with y register offset
-            low = read(pc++);
-            high = read(pc++);
+            low = (Word) read(pc++);
+            high = (Word) read(pc++);
 
             addr_abs = ((high << 8) | low) + index_x;
 
@@ -188,8 +189,8 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return ((addr_abs & 0xFF00) != (high << 8)); 
         case Ind:
             // the second byte is the lower byte of a memory address, the third byte is the higher
-            low = read(pc++);
-            high = read(pc++);
+            low = (Word) read(pc++);
+            high = (Word) read(pc++);
             addr = (high << 8) | low;
 
             // emulate 6502 bug: wrap around page if we cross page boundary
@@ -210,15 +211,15 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             low = read(addr & 0x00FF);
             high = read((addr + 1) & 0x00FF);
 
-            addr_abs = (high << 8) | low;
+            addr_abs = ( ((Word) high) << 8) | (Word) low;
             return false;
 
         case IndY:
             // the second byte stores a pointer on page 0; the contents of memory at the address in pointer are offset by y
-            ptr = read(pc++) & 0x00FF;
+            ptr = (Word) read(pc++) & 0x00FF;
             
-            low = read(ptr & 0x00FF);
-            high = read((ptr + 1) & 0x00FF);
+            low = (Word) read(ptr & 0x00FF);
+            high = (Word) read((ptr + 1) & 0x00FF);
 
             addr_abs = ((high << 8) | low) + index_y;
 
@@ -242,56 +243,193 @@ Byte nes6502::fetch() {
 }
 
 // opcodes start
-
 bool nes6502::ADC() {
     return false;
 }
 
 bool nes6502::AND() {
-    return false;
+    Byte data = fetch();
+    accum &= data;
+
+    status.flags.Z = (accum == 0x00) ? 1 : 0;
+    status.flags.N = (accum & 0x80) ? 1: 0;
+    
+    return true;
 }
 
 bool nes6502::ASL() {
+    Word data = (Word) fetch();
+    data <<= 1;
+    
+    // check for implied mode
+    if (instr_table[opcode].mode != Imp) {
+        write(addr_abs, (Byte) data & 0x00FF);
+    }
+    else {
+        accum = data & 0x00FF;
+    }
+
+    status.flags.C = ((data & 0xFF00) > 0) ? 1 : 0;
+    status.flags.Z = ((data & 0x00FF) == 0) ? 1 : 0;
+    status.flags.N = (data & 0x80) ? 1 : 0;
+
+
     return false;
 }
 
 bool nes6502::BCC() {
+    if (!status.flags.C) {
+        // add extra cycle if we do branch
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+        
+        // if page crossed, add another cycle
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }   
     return false;
 }
 
 bool nes6502::BCS() {
+    if (status.flags.C) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump && 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }
 
 bool nes6502::BEQ() {
+    if (status.flags.Z) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }    
 
 bool nes6502::BIT() {
+    Byte data = fetch();
+    
+    Byte test = accum & data;
+
+    status.flags.Z = (test == 0x00) ? 1 : 0;
+    status.flags.V = (test & (1 << 6)) ? 1: 0;
+    status.flags.N = (test & (1 << 7)) ? 1: 0;
+
     return false;
 }    
 
 bool nes6502::BMI() {
+    if (status.flags.N) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump && 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }
 
 bool nes6502::BNE() {
+    if (!status.flags.Z) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }    
 
 bool nes6502::BPL() {
+    if (!status.flags.N) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }    
 
 bool nes6502::BRK() {
+    // increment pc to account for unused byte in the BRK instruction
+    ++pc;
+
+    write(STK_ADDR_START + stkp--, (pc >> 8) && 0x00FF);
+    write(STK_ADDR_START + stkp--, pc & 0x00FF);
+
+    // incur interrupt
+    status.flags.I = 1;
+    status.flags.B = 1;
+
+    write(STK_ADDR_START + stkp--, status.reg);
+
+    // set pc to contents at memory address 0xFFFE + 0xFFFF
+    Word low = read(0xFFFE);
+    Word high = read(0xFFFF);
+
+    pc = (high << 8) | low;
+
     return false;
 }    
 
 bool nes6502::BVC() {
+    if (!status.flags.V) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }
 
 bool nes6502::BVS() {
+    if (status.flags.V) {
+        ++cycles;
+
+        Word jump = pc + addr_rel;
+
+        if ((jump & 0xFF00) != (pc & 0xFF00)) {
+            ++cycles;
+        }
+
+        pc = jump;
+    }
     return false;
 }   
 
