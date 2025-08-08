@@ -142,7 +142,7 @@ bool nes6502::resolveAddress(AddressingMode mode) {
             return false;
         case Rel:
             // used with only branch instructions; second byte is an offset that is added to pc when counter is set at next instruction
-            addr_rel = (Word) (Word) read(pc++);
+            addr_rel = (Word) read(pc++);
             if (addr_rel & 0x80) {
                 addr_rel |= 0xFF00;                                               // turn negative if MSB is 1 (negative)
             }
@@ -434,66 +434,141 @@ bool nes6502::BVS() {
 }   
 
 bool nes6502::CLC() {
+    status.flags.C = 0;
     return false;
 }    
 
 bool nes6502::CLD() {
+    status.flags.D = 0;
     return false;
 }    
 
 bool nes6502::CLI() {
+    status.flags.I = 0;
     return false;
 }
 
 bool nes6502::CLV() {
+    status.flags.V = 0;
     return false;
 }    
 
 bool nes6502::CMP() {
-    return false;
+    Byte data = fetch();
+    Word cmp = (Word) accum - (Word) data;
+
+    status.flags.C = (accum >= data) ? 1 : 0;
+    status.flags.Z = (cmp == 0) ? 1 : 0;
+    status.flags.N = (cmp & 0x0080) ? 1 : 0;
+
+    return true;
 }    
 
 bool nes6502::CPX() {
+    Byte data = fetch();
+    Word cmp = (Word) index_x - (Word) data;
+
+    status.flags.C = (index_x >= data) ? 1 : 0;
+    status.flags.Z = (cmp == 0) ? 1 : 0;
+    status.flags.N = (cmp & 0x0080) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::CPY() {
+    Byte data = fetch();
+    Word cmp = (Word) index_y - (Word) data;
+
+    status.flags.C = (index_y >= data) ? 1 : 0;
+    status.flags.Z = (cmp == 0x0000) ? 1 : 0;
+    status.flags.N = (cmp & 0x0080) ? 1 : 0;
+
     return false;
 }
 
 bool nes6502::DEC() {
+    Byte data = fetch();
+    --data;
+    write(addr_abs, data);
+
+    status.flags.Z = (data == 0x00) ? 1 : 0;
+    status.flags.N = (data & 0x80) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::DEX() {
+    --index_x;
+
+    status.flags.Z = (index_x == 0x00) ? 1 : 0;
+    status.flags.N = (index_x & 0x80) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::DEY() {
+    --index_y;
+
+    status.flags.Z = (index_x == 0x00) ? 1 : 0;
+    status.flags.N = (index_x & 0x80) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::EOR() {
-    return false;
+    Byte data = fetch();
+    accum &= data;
+
+    status.flags.Z = (accum == 0x00) ? 1 : 0;
+    status.flags.N = (accum & 0x80) ? 1 : 0;
+
+    return true;
 }
 
 bool nes6502::INC() {
+    Byte data = fetch();
+    ++data;
+    write(addr_abs, data);
+
+    status.flags.Z = (data == 0x00) ? 1 : 0;
+    status.flags.N = (data & 0x80) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::INX() {
+    ++index_x;
+
+    status.flags.Z = (index_x == 0x00) ? 1 : 0;
+    status.flags.N = (index_x & 0x80) ? 1 : 0;
+    
     return false;
 }    
 
 bool nes6502::INY() {
+    ++index_y;
+
+    status.flags.Z = (index_x == 0x00) ? 1 : 0;
+    status.flags.N = (index_x & 0x80) ? 1 : 0;
+
     return false;
 }    
 
 bool nes6502::JMP() {
+    pc = addr_abs;
+
     return false;
 }
 
 bool nes6502::JSR() {
+    // decrement pc because return addr on stack points to one addr before next instr
+    --pc;
+
+    write(STK_ADDR_START + stkp--, (pc >> 8) & 0x00FF);
+    write(STK_ADDR_START + stkp--, pc & 0x00FF);
+    
+    pc = addr_abs;
+
     return false;
 }    
 
