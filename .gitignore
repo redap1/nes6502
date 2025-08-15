@@ -11,3 +11,7 @@ Makefile
 *.obj
 
 /tests/build/
+
+/.cache/clangd/
+
+.cache/
